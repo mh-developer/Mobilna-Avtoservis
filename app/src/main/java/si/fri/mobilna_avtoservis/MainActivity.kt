@@ -61,18 +61,18 @@ class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
             "Shreck"
         )
 
-        loadData()
+        println(loadData())
 
         // Locate the ListView in listview_main.xml
         list = findViewById(R.id.listview) as ListView
 
         movieNamesArrayList = ArrayList()
 
-//        for (i in myRetroCryptoArrayList!!.indices) {
-//            val movieNames = Reservation(moviewList!![i])
-//            // Binds all strings into an array
-//            movieNamesArrayList.add(movieNames)
-//        }
+        for (i in moviewList!!.indices) {
+            val movieNames = Reservation(i.toString(), moviewList!![i], "")
+            // Binds all strings into an array
+            movieNamesArrayList.add(movieNames)
+        }
 
         println(myRetroCryptoArrayList)
 
@@ -115,30 +115,13 @@ class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
 
         val requestInterface = Retrofit.Builder()
             .baseUrl(BASE_URL)
-
-//Specify the converter factory to use for serialization and deserialization//
-
             .addConverterFactory(GsonConverterFactory.create())
-
-//Add a call adapter factory to support RxJava return types//
-
             .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
-
-//Build the Retrofit instance//
-
             .build().create(SOService::class.java)
-
-//Add all RxJava disposables to a CompositeDisposable//
 
         myCompositeDisposable?.add(
             requestInterface.getResevarions()
-
-//Send the Observable’s notifications to the main UI thread//
-
                 .observeOn(AndroidSchedulers.mainThread())
-
-//Subscribe to the Observer away from the main UI thread//
-
                 .subscribeOn(Schedulers.io())
                 .subscribe(this::handleResponse)
         )
@@ -149,19 +132,8 @@ class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
 
         myRetroCryptoArrayList = ArrayList(reservationList)
 
-//Set the adapter//
-
-//        cryptocurrency_list.adapter = myAdapter
 
     }
-
-//    override fun onItemClick(reservation: Reservation) {
-//
-////If the user clicks on an item, then display a Toast//
-//
-//        Toast.makeText(this, "Izbrali ste rezervacijo ${reservation.id_rezervacije}", Toast.LENGTH_LONG).show()
-//
-//    }
 
 
     override fun onDestroy() {
