@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Mobilna-Avtoservis</string>
-    <string name="action_settings">Settings</string>
+    <string name="app_name">Avtoservis</string>
+    <string name="action_refresh">Osveži</string>
 </resources>
