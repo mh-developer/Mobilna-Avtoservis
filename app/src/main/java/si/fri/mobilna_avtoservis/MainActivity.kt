@@ -1,159 +1,149 @@
 package si.fri.mobilna_avtoservis
 
+import android.content.Context
+import android.net.ConnectivityManager
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
-import androidx.appcompat.app.AppCompatActivity
 import android.view.MenuItem
-
-import kotlinx.android.synthetic.main.activity_main.*
-
 import android.widget.AdapterView
 import android.widget.ListView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
-import retrofit2.Retrofit
-import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
-import retrofit2.converter.gson.GsonConverterFactory
+import com.android.volley.RequestQueue
+import com.android.volley.Response
+import com.android.volley.toolbox.JsonArrayRequest
+import com.android.volley.toolbox.Volley
+import kotlinx.android.synthetic.main.activity_main.*
+import org.json.JSONArray
+import org.json.JSONException
 import si.fri.mobilna_avtoservis.Models.Reservation
 
 
 class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
 
-    private var mService: SOService? = null
-    val BASE_URL = "http://localhost:8000/api/"
+    private var requestQueue: RequestQueue? = null
+    val BASE_URL = "http://10.0.2.2:8000/api"
 
-
-    private var myAdapter: ListViewAdapter? = null
-    private var myCompositeDisposable: CompositeDisposable? = null
-    private var myRetroCryptoArrayList: ArrayList<Reservation>? = null
     private var list: ListView? = null
     private var adapter: ListViewAdapter? = null
-    private var editsearch: SearchView? = null
-    private var moviewList: Array<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-//        fab.setOnClickListener { view ->
-//            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                .setAction("Action", null).show()
-//        }
+
+        requestQueue = Volley.newRequestQueue(applicationContext)
+        list = findViewById<ListView>(R.id.listview)
 
 
-        // Generate sample data
+        // load API reservation data
+        loadList()
 
-        moviewList = arrayOf(
-            "Xmen",
-            "Titanic",
-            "Captain America",
-            "Iron man",
-            "Rocky",
-            "Transporter",
-            "Lord of the rings",
-            "The jungle book",
-            "Tarzan",
-            "Cars",
-            "Shreck"
-        )
-
-        println(loadData())
-
-        // Locate the ListView in listview_main.xml
-        list = findViewById(R.id.listview) as ListView
-
-        movieNamesArrayList = ArrayList()
-
-        for (i in moviewList!!.indices) {
-            val movieNames = Reservation(i.toString(), moviewList!![i], "")
-            // Binds all strings into an array
-            movieNamesArrayList.add(movieNames)
-        }
-
-        println(myRetroCryptoArrayList)
 
         // Pass results to ListViewAdapter Class
         adapter = ListViewAdapter(this)
-
-        // Binds the Adapter to the ListView
         list!!.adapter = adapter
-
-        // Locate the EditText in listview_main.xml
-//        editsearch = findViewById<SearchView>(R.id.search)
-//        editsearch!!.setOnQueryTextListener(this)
 
         list!!.onItemClickListener = AdapterView.OnItemClickListener { parent, view, position, id ->
             Toast.makeText(
                 this@MainActivity,
-                movieNamesArrayList[position].dodatni_opis,
+                "Številka rezervacije: " + reservationsArrayList.get(position).id_rezervacije,
                 Toast.LENGTH_SHORT
             ).show()
         }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.action_refresh -> true
             else -> super.onOptionsItemSelected(item)
         }
     }
 
-    private fun loadData() {
+    private val jsonArrayListener = Response.Listener<JSONArray> { response ->
 
-        val requestInterface = Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
-            .build().create(SOService::class.java)
+        for (i in 0 until response.length()) {
+            try {
+                val `object` = response.getJSONObject(i)
+                val id = `object`.getString("id_rezervacije")
+                var dodatniOpis: String? = `object`.getString("dodatni_opis")
+                var termin: String? = `object`.getString("termin")
 
-        myCompositeDisposable?.add(
-            requestInterface.getResevarions()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribeOn(Schedulers.io())
-                .subscribe(this::handleResponse)
-        )
+                dodatniOpis = if (dodatniOpis == null || dodatniOpis == "null") "" else dodatniOpis
+                termin = if (termin == null || termin == "null") "" else termin
 
-    }
+                reservationsArrayList.add(
+                    Reservation(
+                        id,
+                        dodatniOpis,
+                        termin
+                    )
+                )
 
-    private fun handleResponse(reservationList: List<Reservation>) {
+            } catch (e: JSONException) {
+                e.printStackTrace()
+            }
 
-        myRetroCryptoArrayList = ArrayList(reservationList)
-
-
-    }
-
-
-    override fun onDestroy() {
-        super.onDestroy()
-
-        myCompositeDisposable?.clear()
-
-    }
-
-        override fun onQueryTextSubmit(query: String): Boolean {
-
-            return false
-        }
-
-        override fun onQueryTextChange(newText: String): Boolean {
-            adapter!!.filter(newText)
-            return false
-        }
-
-        companion object {
-            var movieNamesArrayList = ArrayList<Reservation>()
+            adapter = ListViewAdapter(this@MainActivity)
+            list = findViewById(R.id.listview)
+            list!!.setAdapter(adapter)
         }
     }
+
+    private val errorListener = Response.ErrorListener { error ->
+        Log.d("REST error", error.message)
+    }
+
+    fun loadList() {
+
+        reservationsArrayList = ArrayList<Reservation>()
+
+        if (!isNetworkAvailable()) {
+            val noNetworkToast =
+                Toast.makeText(applicationContext, "Ni povezave", Toast.LENGTH_LONG)
+            noNetworkToast.show()
+        }
+
+        // Potrebno nastaviti link do APIja
+        try {
+            val url = "${BASE_URL}/reservations"
+            val request = JsonArrayRequest(url, jsonArrayListener, errorListener)
+            requestQueue?.add(request)
+        } catch (e: Exception) {
+            val noNetworkToast =
+                Toast.makeText(applicationContext, "Ni povezave do API-ja", Toast.LENGTH_LONG)
+            noNetworkToast.show()
+        }
+
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetworkInfo = connectivityManager.activeNetworkInfo
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected
+    }
+
+
+    override fun onQueryTextSubmit(query: String): Boolean {
+
+        return false
+    }
+
+    override fun onQueryTextChange(newText: String): Boolean {
+        adapter!!.filter(newText)
+        return false
+    }
+
+    companion object {
+        var reservationsArrayList = ArrayList<Reservation>()
+    }
+}
